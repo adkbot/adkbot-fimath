@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Inter", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-roboto: "Roboto", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-background: #0B0F14;
+  --color-surface: #11161D;
+  --color-surface-low: #0B0F14;
+  --color-surface-container: #1A1F26;
+  --color-surface-bright: #252B33;
+  
+  --color-primary: #00E676;
+  --color-primary-container: #00C853;
+  --color-on-primary: #ffffff;
+  
+  --color-secondary: #FF6D00;
+  
+  --color-danger: #FF5252;
+  --color-success: #00C853;
+  --color-warning: #FFA726;
+  
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-magenta-500: #d946ef;
+  --color-magenta-600: #c026d3;
+  --color-magenta-700: #a21caf;
+  --color-orange-600: #ea580c;
+  --color-orange-500: #FF6D00;
+  
+  --color-outline-variant: #252B33;
+  --color-on-surface-variant: #ababab;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-sans antialiased overflow-hidden;
+  }
+  
+  * {
+    @apply border-none rounded-none;
+  }
+}
+
+@layer utilities {
+  .grid-bg {
+    background-image: linear-gradient(to right, rgba(72, 72, 72, 0.15) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(72, 72, 72, 0.15) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-surface-low;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-outline-variant/50 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
+  }
+}
