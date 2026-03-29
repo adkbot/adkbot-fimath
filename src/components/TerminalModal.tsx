@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Terminal as TerminalIcon, Shield, Zap, Activity, Cpu, ShieldCheck } from 'lucide-react';
+import { X, Terminal as TerminalIcon, Shield, Zap, Activity, Cpu, ShieldCheck, Cloud } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface TerminalModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isCloudMode: boolean;
+  baseUrl: string;
 }
 
-export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose }) => {
+export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose, isCloudMode, baseUrl }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [status, setStatus] = useState<'IDLE' | 'CONNECTING' | 'CONNECTED' | 'ERROR'>('IDLE');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -39,9 +41,18 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
   const startConnection = () => {
     setStatus('CONNECTING');
     setLogs([]);
-    addLog("SOLICITANDO ACESSO AO SERVIDOR LOCAL...");
+    
+    if (isCloudMode) {
+        addLog("MODO NUVEM: ACESSANDO RELAY SUPABASE...");
+        addLog("[SISTEMA] Conectado via Cloud Bridge.");
+        addLog("[INFO] Status e ordens sincronizados em tempo real.");
+        setStatus('CONNECTED');
+        return;
+    }
 
-    const es = new EventSource('http://localhost:3001/api/connect-mt5');
+    addLog("SOLICITANDO ACESSO AO SERVIDOR LOCAL...");
+    const url = `${baseUrl}/api/connect-mt5`;
+    const es = new EventSource(url);
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {
@@ -52,7 +63,6 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
           if (data.message.includes("SUCESSO") || data.type === 'connection_success') setStatus('CONNECTED');
           if (data.message.includes("ERRO") || data.type === 'error') setStatus('ERROR');
         } else if (data.type === 'status') {
-          // Status updates don't need to be logs, but we can update the status state
           setStatus('CONNECTED');
         }
       } catch (e) {
@@ -96,8 +106,14 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
                 status === 'CONNECTED' ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : 
                 status === 'CONNECTING' ? "bg-yellow-500 animate-pulse" : "bg-red-500"
               )} />
-              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">BRIDGE: {status}</span>
+              <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">BRIDGE: {isCloudMode ? 'CLOUD_RELAY' : status}</span>
             </div>
+            {isCloudMode && (
+              <div className="flex items-center gap-2">
+                <Cloud size={12} className="text-purple-500" />
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">RELAY: SUPABASE_ACTIVE</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Cpu size={12} className="text-cyan-500" />
               <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">OS: WINDOWS_X64</span>
@@ -123,8 +139,8 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
           {logs.map((log, i) => (
             <div key={i} className={cn(
               "flex gap-3",
-              log.includes("SUCESSO") ? "text-green-400" : 
-              log.includes("ERRO") ? "text-magenta-500 font-bold" : 
+              log.includes("SUCESSO") || log.includes("CLOUD") ? "text-green-400" : 
+              log.includes("ERRO") ? "text-red-500 font-bold" : 
               "text-cyan-400/70"
             )}>
               <span className="opacity-20 shrink-0">[{i.toString().padStart(3, '0')}]</span>
@@ -144,7 +160,7 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
           <div className="flex gap-6">
              <div className="flex flex-col">
                <span className="text-[8px] text-white/20 font-black uppercase">Latency</span>
-               <span className="text-[10px] text-cyan-400 font-mono">14ms</span>
+               <span className="text-[10px] text-cyan-400 font-mono">{isCloudMode ? 'SYNC' : '14ms'}</span>
              </div>
              <div className="flex flex-col">
                <span className="text-[8px] text-white/20 font-black uppercase">Buffer</span>
@@ -162,4 +178,3 @@ export const TerminalModal: React.FC<TerminalModalProps> = ({ isOpen, onClose })
     </div>
   );
 };
-

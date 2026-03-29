@@ -19,6 +19,8 @@ interface DashboardProps {
   onManualCapture: () => void;
   onUpdateSetting: (key: string, value: any) => void;
   onToggleScanner: () => void;
+  isCloudMode: boolean;
+  baseUrl: string;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -31,7 +33,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onToggleBot,
   onManualCapture,
   onUpdateSetting,
-  onToggleScanner
+  onToggleScanner,
+  isCloudMode,
+  baseUrl
 }) => {
   return (
     <div className="flex flex-col h-screen bg-background text-white overflow-hidden font-sans">
@@ -43,6 +47,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         isScannerActive={state.isAutoScannerActive}
         timeframe={state.timeframe}
         onToggleBot={onToggleBot}
+        isCloudMode={isCloudMode}
+        baseUrl={baseUrl}
       />
       
       <MetricsCards 

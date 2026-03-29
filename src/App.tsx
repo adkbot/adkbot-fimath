@@ -64,60 +64,85 @@ export default function App() {
 
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // 1. Connect to Bridge & Handle Real-time Data
+  // 1. Detect environment and manage connection
+  const isCloudMode = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const BASE_URL = isCloudMode ? '' : 'http://localhost:3001';
+
   const connectMT5 = useCallback(() => {
     if (isConnecting) return;
-    setIsConnecting(true);
     
-    if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-    }
-
-    eventSourceRef.current = new EventSource('http://localhost:3001/api/connect-mt5');
-    
-    eventSourceRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'connection_success') {
-            setIsConnecting(false);
-            speakAnalysis("Conexão com MetaTrader 5 estabelecida automaticamente.", state.settings.voiceName);
-        }
-        if (data.type === 'error') {
-            setIsConnecting(false);
-            console.error("Erro na conexão:", data.message);
-        }
+    if (!isCloudMode) {
+        // Local Mode: Use SSE as before
+        setIsConnecting(true);
+        if (eventSourceRef.current) eventSourceRef.current.close();
+        eventSourceRef.current = new EventSource(`${BASE_URL}/api/connect-mt5`);
         
-        if (data.type === 'status' || data.type === 'connection_success') {
-            setState(prev => {
-              const positions = data.positions ?? prev.positions;
-              const tradesToday = prev.history.length + positions.length; // Simplified for demo
-              const wins = prev.history.filter(t => (t.profit || 0) > 0).length;
-              const losses = prev.history.filter(t => (t.profit || 0) < 0).length;
-              const winRate = tradesToday > 0 ? (wins / (wins + losses || 1)) * 100 : 0;
+        eventSourceRef.current.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleIncomingData(data);
+        };
 
-              return { 
-                ...prev, 
-                balance: data.balance ?? prev.balance, 
-                equity: data.equity ?? prev.equity,
-                profit: data.profit ?? prev.profit,
-                accountName: data.name ?? prev.accountName,
-                accountServer: data.server ?? prev.accountServer,
-                positions: positions,
-                metrics: {
-                  tradesToday,
-                  wins,
-                  losses,
-                  winRate
+        eventSourceRef.current.onerror = () => {
+            setIsConnecting(false);
+            eventSourceRef.current?.close();
+        };
+    } else {
+        // Cloud Mode: Polling from /api/sync
+        setIsConnecting(true);
+        const poll = async () => {
+            try {
+                const res = await fetch(`${BASE_URL}/api/sync`);
+                const data = await res.json();
+                handleIncomingData(data);
+                if (data.type === 'status' || data.type === 'connection_success') {
+                    setIsConnecting(false);
                 }
-              };
-            });
-        }
-    };
+            } catch (e) {
+                console.error("Cloud Sync Error:", e);
+            }
+        };
+        poll();
+        const interval = setInterval(poll, 2000);
+        return () => clearInterval(interval);
+    }
+  }, [isConnecting, isCloudMode, BASE_URL]);
 
-    eventSourceRef.current.onerror = () => {
+  const handleIncomingData = (data: any) => {
+    if (data.type === 'connection_success') {
         setIsConnecting(false);
-        eventSourceRef.current?.close();
-    };
-  }, [isConnecting, state.settings.voiceName]);
+        speakAnalysis("Conexão com MetaTrader 5 sincronizada via Nuvem.", state.settings.voiceName);
+    }
+    if (data.type === 'error') {
+        setIsConnecting(false);
+        console.error("Erro na conexão:", data.message);
+    }
+    
+    if (data.type === 'status' || data.type === 'connection_success') {
+        setState(prev => {
+          const positions = data.positions ?? prev.positions;
+          const tradesToday = prev.history.length + positions.length;
+          const wins = prev.history.filter(t => (t.profit || 0) > 0).length;
+          const losses = prev.history.filter(t => (t.profit || 0) < 0).length;
+          const winRate = tradesToday > 0 ? (wins / (wins + losses || 1)) * 100 : 0;
+
+          return { 
+            ...prev, 
+            balance: data.balance ?? prev.balance, 
+            equity: data.equity ?? prev.equity,
+            profit: data.profit ?? prev.profit,
+            accountName: data.name ?? prev.accountName,
+            accountServer: data.server ?? prev.accountServer,
+            positions: positions,
+            metrics: {
+              tradesToday,
+              wins,
+              losses,
+              winRate
+            }
+          };
+        });
+    }
+  };
 
   useEffect(() => {
     connectMT5();
@@ -129,13 +154,13 @@ export default function App() {
   // 2. Fetch Economic Calendar
   const fetchCalendar = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/calendar');
+      const response = await fetch(`${BASE_URL}/api/calendar`);
       const data = await response.json();
       setState(prev => ({ ...prev, calendar: data }));
     } catch (e) {
       console.error("Erro ao buscar calendário:", e);
     }
-  }, []);
+  }, [BASE_URL]);
 
   useEffect(() => {
     fetchCalendar();
@@ -151,7 +176,7 @@ export default function App() {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), 4000);
     try {
-      const res = await fetch(`http://localhost:3001/api/history?symbol=${symbol}&timeframe=${tf}&count=200`, {
+      const res = await fetch(`${BASE_URL}/api/history?symbol=${symbol}&timeframe=${tf}&count=200`, {
         signal: controller.signal
       });
       clearTimeout(id);
@@ -231,11 +256,11 @@ export default function App() {
     speakAnalysis("Canal capturado manualmente.", state.settings.voiceName);
   };
 
-  const handleUpdateSetting = (key: string, value: any) => {
+  const updateSetting = (key: string, value: any) => {
     setState(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleToggleScanner = () => {
+  const toggleScanner = () => {
     setState(prev => {
         const newState = !prev.isAutoScannerActive;
         return { ...prev, isAutoScannerActive: newState };
@@ -295,7 +320,7 @@ export default function App() {
             speakAnalysis(`Sinal de ${execSignal} detectado em ${execSymbol}. Executando operação.`, state.settings.voiceName);
             new Audio('/sounds/entry.mp3').play().catch(() => {});
             
-            fetch('http://localhost:3001/api/trade', {
+            fetch(`${BASE_URL}/api/trade`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -328,7 +353,7 @@ export default function App() {
 
                 const controller = new AbortController();
                 const tid = setTimeout(() => controller.abort(), 5000);
-                const res = await fetch(`http://localhost:3001/api/history?symbol=${symbol}&timeframe=${timeframe}&count=30`, {
+                const res = await fetch(`${BASE_URL}/api/history?symbol=${symbol}&timeframe=${timeframe}&count=30`, {
                     signal: controller.signal
                 });
                 clearTimeout(tid);
@@ -359,7 +384,7 @@ export default function App() {
             for (const item of signalsToExecute) {
                 console.log(`[SCANNER] Sinal de ${item.signal} em ${item.symbol}`);
                 speakAnalysis(`Scanner detectou ${item.signal} em ${item.symbol}.`, settings.voiceName);
-                fetch('http://localhost:3001/api/trade', {
+                fetch(`${BASE_URL}/api/trade`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -419,8 +444,9 @@ export default function App() {
         onConnect={connectMT5}
         onToggleBot={handleToggleBot}
         onManualCapture={handleManualCapture}
-        onUpdateSetting={handleUpdateSetting}
-        onToggleScanner={handleToggleScanner}
+        onToggleScanner={toggleScanner}
+        isCloudMode={isCloudMode}
+        baseUrl={BASE_URL}
       />
     </div>
   );

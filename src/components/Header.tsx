@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Lock, Cpu } from 'lucide-react';
 
 interface HeaderProps {
@@ -9,6 +9,8 @@ interface HeaderProps {
   isScannerActive: boolean;
   timeframe: string;
   onToggleBot: () => void;
+  isCloudMode: boolean;
+  baseUrl: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -18,8 +20,12 @@ export const Header: React.FC<HeaderProps> = ({
   isRunning,
   isScannerActive,
   timeframe,
-  onToggleBot
+  onToggleBot,
+  isCloudMode,
+  baseUrl
 }) => {
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+
   return (
     <header className="flex items-center justify-between p-4 bg-background border-b border-surface">
       <div className="flex items-center gap-3">

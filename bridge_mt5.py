@@ -8,6 +8,25 @@ def send_json(data):
     """Auxiliary to send JSON to stdout"""
     print(json.dumps(data), flush=True)
 
+def resolve_symbol(symbol):
+    """
+    Tries to find the symbol in MT5, even with broker suffixes like .pro, .m, etc.
+    Returns the corrected symbol name or None if not found.
+    """
+    # 1. Try exact match
+    if mt5.symbol_select(symbol, True):
+        return symbol
+    
+    # 2. Scan all symbols for a match with suffix
+    symbols = mt5.symbols_get()
+    if symbols:
+        for s in symbols:
+            if s.name.startswith(symbol):
+                # Found a potential match (e.g., XAUUSD -> XAUUSD.pro)
+                if mt5.symbol_select(s.name, True):
+                    return s.name
+    return None
+
 def cmd_loop():
     """Reads commands from stdin and executes them"""
     while True:
@@ -20,7 +39,13 @@ def cmd_loop():
             action = cmd_data.get("action")
             
             if action == "get_history":
-                symbol = cmd_data.get("symbol")
+                raw_symbol = cmd_data.get("symbol")
+                symbol = resolve_symbol(raw_symbol)
+                
+                if not symbol:
+                    send_json({"type": "error", "message": f"Símbolo {raw_symbol} não encontrado no seu Broker."})
+                    continue
+
                 timeframe_str = cmd_data.get("timeframe", "M2")
                 count = cmd_data.get("count", 50)
                 
@@ -33,9 +58,9 @@ def cmd_loop():
                 
                 rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
                 if rates is None:
-                    send_json({"type": "error", "message": f"Falha ao copiar rates: {mt5.last_error()}"})
+                    err = mt5.last_error()
+                    send_json({"type": "error", "message": f"Erro MT5 ({err[0]}): {err[1]} para {symbol}"})
                 else:
-                    # Convert to list of dicts
                     rates_list = []
                     for r in rates:
                         rates_list.append({
@@ -46,17 +71,27 @@ def cmd_loop():
                             "close": float(r[4]),
                             "tick_volume": int(r[5])
                         })
-                    send_json({"type": "history", "symbol": symbol, "data": rates_list})
+                    send_json({"type": "history", "symbol": raw_symbol, "resolved_symbol": symbol, "data": rates_list})
 
             elif action == "place_order":
-                symbol = cmd_data.get("symbol")
+                raw_symbol = cmd_data.get("symbol")
+                symbol = resolve_symbol(raw_symbol)
+                if not symbol:
+                    send_json({"type": "error", "message": f"Símbolo {raw_symbol} não encontrado para ordem."})
+                    continue
+
                 type_str = cmd_data.get("type")
                 lot = cmd_data.get("lot")
                 sl = cmd_data.get("sl")
                 tp = cmd_data.get("tp")
                 
                 order_type = mt5.ORDER_TYPE_BUY if type_str == "COMPRA" else mt5.ORDER_TYPE_SELL
-                price = mt5.symbol_info_tick(symbol).ask if type_str == "COMPRA" else mt5.symbol_info_tick(symbol).bid
+                tick = mt5.symbol_info_tick(symbol)
+                if not tick:
+                    send_json({"type": "error", "message": f"Não foi possível obter preço atual de {symbol}"})
+                    continue
+                
+                price = tick.ask if type_str == "COMPRA" else tick.bid
                 
                 request = {
                     "action": mt5.TRADE_ACTION_DEAL,
@@ -76,41 +111,34 @@ def cmd_loop():
                 if result.retcode != mt5.TRADE_RETCODE_DONE:
                     send_json({"type": "error", "message": f"Ordem falhou: {result.comment}"})
                 else:
-                    send_json({"type": "trade_success", "deal": result.deal, "order": result.order})
+                    send_json({"type": "trade_success", "deal": result.deal, "order": result.order, "symbol": symbol})
 
         except Exception as e:
             send_json({"type": "error", "message": str(e)})
 
 def main():
-    send_json({"type": "log", "message": "BUSCANDO TERMINAL MT5 INSTALADO NO PC..."})
+    send_json({"type": "log", "message": "CONECTANDO AO TERMINAL MT5..."})
     
-    # Lista de caminhos comuns para o terminal64.exe
-    common_paths = [
-        "C:\\MT5\\terminal64.exe",
-        "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
-        "C:\\Program Files (x86)\\MetaTrader 5\\terminal64.exe"
-    ]
-    
-    connected = False
-    # Tenta inicializar sem caminho primeiro (se já estiver aberto)
-    if mt5.initialize():
-        connected = True
-    else:
-        # Tenta os caminhos conhecidos
+    if not mt5.initialize():
+        # Tenta caminhos comuns se falhar auto-detect
+        common_paths = [
+            "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
+            "C:\\MT5\\terminal64.exe",
+            "C:\\Program Files (x86)\\MetaTrader 5\\terminal64.exe"
+        ]
+        connected = False
         for path in common_paths:
-            send_json({"type": "log", "message": f"TENTANDO CAMINHO: {path}"})
             if mt5.initialize(path=path):
                 connected = True
                 break
-    
-    if not connected:
-        send_json({"type": "error", "message": "NÃO FOI POSSÍVEL ENCONTRAR O MT5. CERTIFIQUE-SE DE QUE ELE ESTÁ INSTALADO OU ABRA-O MANUALMENTE UMA VEZ."})
-        sys.exit(1)
+        
+        if not connected:
+            send_json({"type": "error", "message": "ERRO: ABRA O SEU TERMINAL MT5 NO PC PARA CONECTAR."})
+            sys.exit(1)
 
-    send_json({"type": "log", "message": "TERMINAL ENCONTRADO! CONECTANDO À CONTA..."})
     account_info = mt5.account_info()
     if account_info is None:
-        send_json({"type": "error", "message": "FALHA AO OBTER INFORMAÇÕES DA CONTA (VERIFIQUE LOGIN/SENHA NO MT5)."})
+        send_json({"type": "error", "message": "LOGIN FALHOU: VERIFIQUE SUA CONTA NO MT5."})
         mt5.shutdown()
         sys.exit(1)
 
@@ -120,19 +148,15 @@ def main():
         "name": account_info.name,
         "server": account_info.server,
         "balance": account_info.balance,
-        "equity": account_info.equity,
-        "company": account_info.company
+        "equity": account_info.equity
     })
     
-    # Start command loop in a separate thread
     threading.Thread(target=cmd_loop, daemon=True).start()
 
     try:
         while True:
-            # Update status periodically
             acc = mt5.account_info()
             if acc:
-                # Get open positions
                 positions = mt5.positions_get()
                 pos_list = []
                 if positions:
@@ -142,9 +166,6 @@ def main():
                             "symbol": p.symbol,
                             "type": "BUY" if p.type == mt5.POSITION_TYPE_BUY else "SELL",
                             "volume": p.volume,
-                            "price_open": p.price_open,
-                            "sl": p.sl,
-                            "tp": p.tp,
                             "profit": p.profit
                         })
 
@@ -152,12 +173,11 @@ def main():
                     "type": "status", 
                     "balance": acc.balance, 
                     "equity": acc.equity,
-                    "profit": round(acc.profit, 2), # Corrected from profit to acc.profit
+                    "profit": round(acc.profit, 2),
                     "name": acc.name,
-                    "server": acc.server,
                     "positions": pos_list
                 })
-            time.sleep(1) # Faster updates
+            time.sleep(1)
     except KeyboardInterrupt:
         pass
     finally:
