@@ -20,43 +20,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // --- POST: Update MT5 status from Local Connector ---
   if (req.method === 'POST') {
-    const statusData = req.body;
-    
-    // 1. Update (upsert) status
-    const { error: upsertError } = await supabase
-      .from('status_mt5')
-      .upsert({ 
-        id: 1, 
-        status: statusData, 
-        created_at: new Date().toISOString() 
-      });
+    try {
+      const statusData = req.body;
+      if (!statusData) return res.status(400).json({ error: 'Nenhum corpo de requisição enviado' });
 
-    if (upsertError) return res.status(500).json({ error: upsertError.message });
+      // 1. Update (upsert) status
+      const { error: upsertError } = await supabase
+        .from('status_mt5')
+        .upsert({ 
+          id: 1, 
+          status: statusData, 
+          created_at: new Date().toISOString() 
+        });
 
-    // 2. Fetch pending commands to return them to the connector
-    const { data: commands, error: fetchError } = await supabase
-      .from('mt5_comandos')
-      .select('*')
-      .eq('executed', false);
+      if (upsertError) throw upsertError;
 
-    if (fetchError) return res.status(500).json({ error: fetchError.message });
+      // 2. Fetch pending commands
+      const { data: commands, error: fetchError } = await supabase
+        .from('mt5_comandos')
+        .select('*')
+        .eq('executed', false);
 
-    return res.status(200).json({ status: 'ok', commands: commands || [] });
+      if (fetchError) throw fetchError;
+
+      return res.status(200).json({ status: 'ok', commands: commands || [] });
+    } catch (err: any) {
+      console.error('Error Sync POST:', err);
+      return res.status(500).json({ error: err.message || 'Erro interno no POST' });
+    }
   }
 
   // --- GET: Fetch status for the Dashboard ---
   if (req.method === 'GET') {
-    const { data, error } = await supabase
-      .from('status_mt5')
-      .select('status')
-      .eq('id', 1)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('status_mt5')
+        .select('status')
+        .eq('id', 1)
+        .maybeSingle(); // Better than .single()
 
-    if (error && error.code !== 'PGRST116') {
-      return res.status(500).json({ error: error.message });
+      if (error) throw error;
+
+      return res.status(200).json(data?.status || { type: 'log', message: 'Nenhum dado sincronizado ainda.' });
+    } catch (err: any) {
+      console.error('Error Sync GET:', err);
+      return res.status(500).json({ error: err.message || 'Erro interno no GET' });
     }
-
-    return res.status(200).json(data?.status || { type: 'log', message: 'Nenhum dado sincronizado ainda.' });
   }
 
   return res.status(405).json({ error: 'Method Not Allowed' });
