@@ -1,7 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.URL__SUPABASE || '';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tradeData = req.body;
     
     const { data: command, error: insertError } = await supabase
-      .from('mt5_commands')
+      .from('mt5_comandos')
       .insert({
           action: 'place_order',
           data: tradeData,
@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     if (action === 'mark_executed' && id) {
         const { error } = await supabase
-          .from('mt5_commands')
+          .from('mt5_comandos')
           .update({ executed: true })
           .eq('id', id);
           

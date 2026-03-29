@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Get history from the latest sync payload in status table
   const { data, error } = await supabase
-    .from('mt5_status')
+    .from('status_mt5')
     .select('status')
     .eq('id', 1)
     .single();

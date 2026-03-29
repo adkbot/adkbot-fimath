@@ -24,14 +24,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     // 1. Update (upsert) status
     const { error: upsertError } = await supabase
-      .from('mt5_status')
+      .from('status_mt5')
       .upsert({ id: 1, status: statusData, last_sync: new Date().toISOString() });
 
     if (upsertError) return res.status(500).json({ error: upsertError.message });
 
     // 2. Fetch pending commands to return them to the connector
     const { data: commands, error: fetchError } = await supabase
-      .from('mt5_commands')
+      .from('mt5_comandos')
       .select('*')
       .eq('executed', false);
 
@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- GET: Fetch status for the Dashboard ---
   if (req.method === 'GET') {
     const { data, error } = await supabase
-      .from('mt5_status')
+      .from('status_mt5')
       .select('status')
       .eq('id', 1)
       .single();
