@@ -6,7 +6,10 @@ import threading
 
 def send_json(data):
     """Auxiliary to send JSON to stdout"""
-    print(json.dumps(data), flush=True)
+    try:
+        print(json.dumps(data), flush=True)
+    except:
+        pass
 
 def resolve_symbol(symbol):
     """
@@ -169,15 +172,30 @@ def main():
                             "profit": p.profit
                         })
 
+                # NEW: Fetch small history only for the primary chart symbol (Otimização)
+                symbol_for_history = "XAUUSD" # Default ou pegue do estado
+                tf = mt5.TIMEFRAME_M2
+                history_data = []
+                rates = mt5.copy_rates_from_pos(symbol_for_history, tf, 0, 100)
+                if rates is not None:
+                    for r in rates:
+                        history_data.append({
+                            "time": int(r[0]), "open": float(r[1]), "high": float(r[2]),
+                            "low": float(r[3]), "close": float(r[4])
+                        })
+
                 send_json({
                     "type": "status", 
                     "balance": acc.balance, 
                     "equity": acc.equity,
                     "profit": round(acc.profit, 2),
                     "name": acc.name,
-                    "positions": pos_list
+                    "server": acc.server,
+                    "positions": pos_list,
+                    "history": history_data,
+                    "calendar": [] # Pode ser adicionado se necessário
                 })
-            time.sleep(1)
+            time.sleep(2) # Intervalo um pouco maior para não sobrecarregar sync
     except KeyboardInterrupt:
         pass
     finally:
