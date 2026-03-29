@@ -89,16 +89,21 @@ export default function App() {
     } else {
         // Cloud Mode: Polling from /api/sync
         setIsConnecting(true);
+        let failCount = 0;
         const poll = async () => {
             try {
                 const res = await fetch(`${BASE_URL}/api/sync`);
+                if (!res.ok) throw new Error(`Status ${res.status}`);
                 const data = await res.json();
                 handleIncomingData(data);
                 if (data.type === 'status' || data.type === 'connection_success') {
                     setIsConnecting(false);
+                    failCount = 0;
                 }
             } catch (e) {
-                console.error("Cloud Sync Error:", e);
+                console.warn("Retrying Cloud Sync...");
+                failCount++;
+                if (failCount > 3) setIsConnecting(false); // Unlock button on repeated failures
             }
         };
         poll();
