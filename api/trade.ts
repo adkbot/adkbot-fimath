@@ -25,8 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: command, error: insertError } = await supabase
       .from('mt5_comandos')
       .insert({
-          action: 'place_order',
-          data: tradeData,
+          action: tradeData.type, // Mapping 'type' from UI to 'action' in DB
+          symbol: tradeData.symbol,
+          lot: parseFloat(tradeData.lot),
           executed: false,
           created_at: new Date().toISOString()
       })

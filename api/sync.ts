@@ -25,7 +25,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 1. Update (upsert) status
     const { error: upsertError } = await supabase
       .from('status_mt5')
-      .upsert({ id: 1, status: statusData, last_sync: new Date().toISOString() });
+      .upsert({ 
+        id: 1, 
+        status: statusData, 
+        created_at: new Date().toISOString() 
+      });
 
     if (upsertError) return res.status(500).json({ error: upsertError.message });
 
