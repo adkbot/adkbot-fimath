@@ -9,7 +9,6 @@ import os
 import sys
 import time
 import json
-import glob
 import threading
 import urllib.request
 import urllib.error
@@ -87,29 +86,28 @@ def find_mt5_terminals():
         r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe",
         r"C:\MT5\terminal64.exe",
         r"C:\MetaTrader 5\terminal64.exe",
+        r"C:\Program Files\MetaTrader 5 EXNESS\terminal64.exe",
+        r"C:\Program Files\MetaTrader 5 IC Markets\terminal64.exe",
+        r"C:\Program Files\MetaTrader 5 XM\terminal64.exe",
+        r"C:\Program Files\MetaTrader 5 Forex.com\terminal64.exe",
     ]
     for p in known:
         if os.path.exists(p):
             paths.append(p)
     
-    # Busca em AppData (instâncias de corretoras)
+    # Busca em AppData (instâncias de corretoras) — RÁPIDA
     appdata_base = os.path.expandvars(r"%APPDATA%\MetaQuotes\Terminal")
     if os.path.exists(appdata_base):
         for terminal_dir in os.listdir(appdata_base):
-            # In AppData, the terminal64.exe is not here, but the origin is
             origin_file = os.path.join(appdata_base, terminal_dir, "origin.txt")
             if os.path.exists(origin_file):
-                with open(origin_file, "r", errors="ignore") as f:
-                    exe_path = f.read().strip()
-                if exe_path and os.path.exists(exe_path) and exe_path not in paths:
-                    paths.append(exe_path)
-    
-    # Busca por glob em drives comuns
-    for drive in ["C:", "D:"]:
-        results = glob.glob(rf"{drive}\**\terminal64.exe", recursive=True)
-        for r in results:
-            if r not in paths:
-                paths.append(r)
+                try:
+                    with open(origin_file, "r", errors="ignore") as f:
+                        exe_path = f.read().strip()
+                    if exe_path and os.path.exists(exe_path) and exe_path not in paths:
+                        paths.append(exe_path)
+                except Exception:
+                    pass
     
     return paths
 
