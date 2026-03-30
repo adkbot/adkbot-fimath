@@ -1,8 +1,8 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.URL__SUPABASE || '';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.URL__SUPABASE || 'https://cygechyguddzmubhzdql.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Z2VjaHlndWRkem11Ymh6ZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDM3MzcsImV4cCI6MjA5MDM3OTczN30.EgQkME9ZNhKiUk_G1lIZ5nBcdmAA9m95wieceXIt158';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

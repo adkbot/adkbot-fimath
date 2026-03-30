@@ -13,7 +13,7 @@ const SUPABASE_KEY =
   process.env.SUPABASE_KEY ||
   process.env.SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5Z2VjaHlndWRkem11Ymh6ZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDM3MzcsImV4cCI6MjA5MDM3OTczN30.EgQkME9ZNhKiUk_G1lIZ5nBcdmAA9m95wieceXIt158';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
