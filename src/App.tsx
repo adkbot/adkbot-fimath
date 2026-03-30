@@ -96,21 +96,28 @@ export default function App() {
         const poll = async () => {
             try {
                 const res = await fetch(`${BASE_URL}/api/sync`);
-                if (!res.ok) throw new Error(`Status ${res.status}`);
+                if (!res.ok) {
+                    // Don't spam errors - just quietly wait
+                    setIsMT5Connected(false);
+                    return;
+                }
                 const data = await res.json();
                 
-                // Only process if it's real MT5 data
+                // Real MT5 data received from the local bridge
                 if (data && (data.type === 'status' || data.type === 'connection_success')) {
                     handleIncomingData(data);
                     setIsConnecting(false);
                     setIsMT5Connected(true);
+                } else if (data && data.type === 'waiting') {
+                    // API is fine, just waiting for local bridge to start
+                    setIsConnecting(true);
+                    setIsMT5Connected(false);
                 } else {
-                    // No real data yet, still waiting for local bridge to push
                     setIsConnecting(true);
                     setIsMT5Connected(false);
                 }
             } catch (e) {
-                console.warn("Cloud Sync polling error, retrying...");
+                // Network error - silently retry
                 setIsMT5Connected(false);
             }
         };
