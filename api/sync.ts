@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 // Suporta múltiplos nomes de variável de ambiente (legado + atual)
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
-  process.env.URL__SUPABASE ||
+  process.env.URL_SUPABASE ||       // Vercel: single underscore variant
+  process.env.URL__SUPABASE ||      // legacy double underscore
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   '';
 
