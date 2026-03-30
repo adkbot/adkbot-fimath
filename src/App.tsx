@@ -63,6 +63,8 @@ export default function App() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isMT5Connected, setIsMT5Connected] = useState(false);
+  const cloudPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 1. Detect environment and manage connection
   const isCloudMode = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -87,34 +89,41 @@ export default function App() {
             eventSourceRef.current?.close();
         };
     } else {
-        // Cloud Mode: Polling from /api/sync
+        // Cloud Mode: Persistent polling from /api/sync
+        if (cloudPollRef.current) return; // Already polling
         setIsConnecting(true);
-        let failCount = 0;
+        
         const poll = async () => {
             try {
                 const res = await fetch(`${BASE_URL}/api/sync`);
                 if (!res.ok) throw new Error(`Status ${res.status}`);
                 const data = await res.json();
-                handleIncomingData(data);
-                if (data.type === 'status' || data.type === 'connection_success') {
+                
+                // Only process if it's real MT5 data
+                if (data && (data.type === 'status' || data.type === 'connection_success')) {
+                    handleIncomingData(data);
                     setIsConnecting(false);
-                    failCount = 0;
+                    setIsMT5Connected(true);
+                } else {
+                    // No real data yet, still waiting for local bridge to push
+                    setIsConnecting(true);
+                    setIsMT5Connected(false);
                 }
             } catch (e) {
-                console.warn("Retrying Cloud Sync...");
-                failCount++;
-                if (failCount > 3) setIsConnecting(false); // Unlock button on repeated failures
+                console.warn("Cloud Sync polling error, retrying...");
+                setIsMT5Connected(false);
             }
         };
-        poll();
-        const interval = setInterval(poll, 2000);
-        return () => clearInterval(interval);
+        
+        poll(); // Immediate first call
+        cloudPollRef.current = setInterval(poll, 2000);
     }
   }, [isConnecting, isCloudMode, BASE_URL]);
 
   const handleIncomingData = (data: any) => {
     if (data.type === 'connection_success') {
         setIsConnecting(false);
+        setIsMT5Connected(true);
         speakAnalysis("Conexão com MetaTrader 5 sincronizada via Nuvem.", state.settings.voiceName);
     }
     if (data.type === 'error') {
@@ -123,6 +132,7 @@ export default function App() {
     }
     
     if (data.type === 'status' || data.type === 'connection_success') {
+        setIsMT5Connected(true);
         setState(prev => {
           const positions = data.positions ?? prev.positions;
           const tradesToday = prev.history.length + positions.length;
@@ -153,6 +163,10 @@ export default function App() {
     connectMT5();
     return () => {
         eventSourceRef.current?.close();
+        if (cloudPollRef.current) {
+            clearInterval(cloudPollRef.current);
+            cloudPollRef.current = null;
+        }
     };
   }, []);
 
@@ -446,10 +460,12 @@ export default function App() {
         onSymbolChange={handleSymbolChange}
         onTimeframeChange={handleTimeframeChange}
         isConnecting={isConnecting}
+        isMT5Connected={isMT5Connected}
         onConnect={connectMT5}
         onToggleBot={handleToggleBot}
         onManualCapture={handleManualCapture}
         onToggleScanner={toggleScanner}
+        onUpdateSetting={updateSetting}
         isCloudMode={isCloudMode}
         baseUrl={BASE_URL}
       />

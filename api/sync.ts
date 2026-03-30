@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // 1. Update (upsert) status
       const { error: upsertError } = await supabase
-        .from('status_mt5')
+        .from('mt5_status')
         .upsert({ 
           id: 1, 
           status: statusData, 
@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // 2. Fetch pending commands
       const { data: commands, error: fetchError } = await supabase
-        .from('mt5_comandos')
+        .from('mt5_commands')
         .select('*')
         .eq('executed', false);
 
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const { data, error } = await supabase
-        .from('status_mt5')
+        .from('mt5_status')
         .select('status')
         .eq('id', 1)
         .maybeSingle(); // Better than .single()

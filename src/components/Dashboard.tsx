@@ -14,6 +14,7 @@ interface DashboardProps {
   onSymbolChange: (s: string) => void;
   onTimeframeChange: (tf: string) => void;
   isConnecting: boolean;
+  isMT5Connected: boolean;
   onConnect: () => void;
   onToggleBot: () => void;
   onManualCapture: () => void;
@@ -29,6 +30,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSymbolChange, 
   onTimeframeChange,
   isConnecting,
+  isMT5Connected,
   onConnect,
   onToggleBot,
   onManualCapture,
@@ -40,7 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex flex-col h-screen bg-background text-white overflow-hidden font-sans">
       <Header 
-        isMT5Connected={state.accountName !== '---'} 
+        isMT5Connected={isMT5Connected} 
         isConnecting={isConnecting}
         onConnect={onConnect}
         isRunning={state.isRunning}

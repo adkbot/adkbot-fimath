@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tradeData = req.body;
     
     const { data: command, error: insertError } = await supabase
-      .from('mt5_comandos')
+      .from('mt5_commands')
       .insert({
           action: tradeData.type, // Mapping 'type' from UI to 'action' in DB
           symbol: tradeData.symbol,
@@ -44,7 +44,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     if (action === 'mark_executed' && id) {
         const { error } = await supabase
-          .from('mt5_comandos')
+          .from('mt5_commands')
           .update({ executed: true })
           .eq('id', id);
           
